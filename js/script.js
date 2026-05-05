@@ -8,6 +8,10 @@ const navLinks = document.querySelectorAll('.main-nav a[href^="#"]');
 
 let toastTimer;
 
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
 const getHeaderOffset = () => {
   return (header?.offsetHeight || 0) + 16;
 };
@@ -102,6 +106,10 @@ if (window.location.hash) {
     window.setTimeout(() => {
       scrollToTarget(window.location.hash);
     }, 0);
+  });
+} else {
+  window.addEventListener('load', () => {
+    window.scrollTo(0, 0);
   });
 }
 
