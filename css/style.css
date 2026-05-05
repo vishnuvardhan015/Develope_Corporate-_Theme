@@ -1056,8 +1056,10 @@ h3 {
 
 .auth-form select {
   appearance: none;
+  padding-right: 44px;
+  background-color: #101a2b;
   background-image:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05)),
     linear-gradient(45deg, transparent 50%, var(--muted) 50%),
     linear-gradient(135deg, var(--muted) 50%, transparent 50%);
   background-position:
@@ -1069,6 +1071,15 @@ h3 {
     6px 6px,
     6px 6px;
   background-repeat: no-repeat;
+}
+
+.auth-form select option {
+  background: #101a2b;
+  color: var(--text);
+}
+
+.auth-form select option[value=""] {
+  color: var(--muted);
 }
 
 .field-error {
