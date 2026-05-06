@@ -7,6 +7,7 @@ const header = document.querySelector('.site-header');
 const navLinks = document.querySelectorAll('.main-nav a[href^="#"]');
 
 let toastTimer;
+let schemeFrame;
 
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
@@ -14,6 +15,72 @@ if ('scrollRestoration' in history) {
 
 const getHeaderOffset = () => {
   return (header?.offsetHeight || 0) + 16;
+};
+
+const getRgba = (color) => {
+  const match = color?.match(/rgba?\(([^)]+)\)/i);
+  if (!match) return null;
+
+  const [r, g, b, a = '1'] = match[1].split(',').map(part => part.trim());
+  return {
+    r: Number.parseFloat(r),
+    g: Number.parseFloat(g),
+    b: Number.parseFloat(b),
+    a: Number.parseFloat(a),
+  };
+};
+
+const isLightColor = ({ r, g, b }) => {
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.72;
+};
+
+const getElementBackdrop = (element) => {
+  let current = element;
+
+  while (current && current !== document.documentElement) {
+    const style = getComputedStyle(current);
+    const color = getRgba(style.backgroundColor);
+    const hasImage = style.backgroundImage && style.backgroundImage !== 'none';
+
+    if (hasImage) {
+      return { hasImage: true, isLight: false };
+    }
+
+    if (color && color.a > 0.3) {
+      return { hasImage: false, isLight: isLightColor(color) };
+    }
+
+    current = current.parentElement;
+  }
+
+  const bodyColor = getRgba(getComputedStyle(document.body).backgroundColor);
+  return { hasImage: false, isLight: bodyColor ? isLightColor(bodyColor) : false };
+};
+
+const updateHeaderScheme = () => {
+  if (!header) return;
+
+  const headerColor = getRgba(getComputedStyle(header).backgroundColor);
+  const transparentHeader = !headerColor || headerColor.a < 0.78;
+  const sampleX = Math.min(window.innerWidth - 1, Math.max(0, window.innerWidth - 28));
+  const sampleY = Math.min(window.innerHeight - 1, Math.max(0, header.offsetHeight + 2));
+  const backdropElement = document.elementFromPoint(sampleX, sampleY);
+  const overMediaHero = Boolean(backdropElement?.closest('.hero-section, [data-navbar-scheme="dark"]'));
+  const backdrop = getElementBackdrop(backdropElement);
+  const headerIsLight = headerColor && headerColor.a >= 0.78 && isLightColor(headerColor);
+  const scheme = overMediaHero || backdrop.hasImage
+    ? 'dark'
+    : transparentHeader
+      ? (backdrop.isLight ? 'light' : 'dark')
+      : (headerIsLight ? 'light' : 'dark');
+
+  header.dataset.scheme = scheme;
+};
+
+const scheduleHeaderSchemeUpdate = () => {
+  window.cancelAnimationFrame(schemeFrame);
+  schemeFrame = window.requestAnimationFrame(updateHeaderScheme);
 };
 
 const showToast = (message) => {
@@ -46,11 +113,18 @@ const openNav = () => {
 navToggle?.addEventListener('click', () => {
   if (mainNav?.classList.contains('open')) {
     closeNav();
+    scheduleHeaderSchemeUpdate();
     return;
   }
 
   openNav();
+  scheduleHeaderSchemeUpdate();
 });
+
+scheduleHeaderSchemeUpdate();
+window.addEventListener('load', scheduleHeaderSchemeUpdate);
+window.addEventListener('resize', scheduleHeaderSchemeUpdate);
+window.addEventListener('scroll', scheduleHeaderSchemeUpdate, { passive: true });
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
