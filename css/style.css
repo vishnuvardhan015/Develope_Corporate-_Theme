@@ -565,7 +565,7 @@ h3 {
 
 .section {
   scroll-margin-top: calc(var(--header-height) + 18px);
-  padding: 52px 24px;
+  padding: 84px 24px;
   max-width: 1180px;
   margin: 0 auto;
 }
@@ -1578,12 +1578,11 @@ h3 {
   }
 
   .hero-section {
-    min-height: auto;
-    padding: calc(var(--header-height) + 15px) 18px 36px;
+    padding: clamp(32px, 7vh, 64px) 18px;
   }
 
   .hero-content {
-    margin: 0;
+    margin: 54px 0 auto;
   }
 
   .hero-section::before {
@@ -1612,7 +1611,7 @@ h3 {
 
 @media (max-width: 560px) {
   .section {
-    padding: 36px 18px;
+    padding: 58px 18px;
   }
 
   .price {
