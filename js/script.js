@@ -61,6 +61,8 @@ const getElementBackdrop = (element) => {
 const updateHeaderScheme = () => {
   if (!header) return;
 
+  header.classList.toggle('is-scrolled', window.scrollY > 12 || mainNav?.classList.contains('open'));
+
   const headerColor = getRgba(getComputedStyle(header).backgroundColor);
   const transparentHeader = !headerColor || headerColor.a < 0.78;
   const sampleX = Math.min(window.innerWidth - 1, Math.max(0, window.innerWidth - 28));
@@ -172,6 +174,18 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
     if (link.dataset.notice) {
       showToast(link.dataset.notice);
     }
+  });
+});
+
+document.querySelectorAll('.footer-social-list a[href="./404.html"]').forEach(link => {
+  link.addEventListener('click', event => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+
+    event.preventDefault();
+    document.body.classList.add('is-navigating');
+    window.setTimeout(() => {
+      window.location.href = link.href;
+    }, 220);
   });
 });
 
