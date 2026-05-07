@@ -228,7 +228,52 @@ if ('IntersectionObserver' in window) {
 }
 
 const validateEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const value = email.trim();
+  const emailPattern = /^[^\s@]+@([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/;
+  return emailPattern.test(value);
+};
+
+const validatePhoneNumber = (phone) => {
+  return /^\d{10}$/.test(phone.trim());
+};
+
+const validatePersonName = (name) => {
+  return /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(name.trim());
+};
+
+const sanitizePhoneNumber = (value) => value.replace(/\D/g, '').slice(0, 10);
+
+const sanitizePersonName = (value) => {
+  return value.replace(/[^A-Za-z\s]/g, '').replace(/\s{2,}/g, ' ');
+};
+
+const authFieldRules = {
+  accountType: {
+    validate: value => Boolean(value.trim()),
+    error: 'Please choose an account type.',
+  },
+  company: {
+    validate: value => Boolean(value.trim()),
+    error: 'Please enter your company name.',
+  },
+  email: {
+    validate: validateEmail,
+    error: 'Please enter a valid email address.',
+  },
+  name: {
+    sanitize: sanitizePersonName,
+    validate: validatePersonName,
+    error: 'Name should contain only letters.',
+  },
+  password: {
+    validate: value => Boolean(value.trim()),
+    error: 'Please enter your password.',
+  },
+  phone: {
+    sanitize: sanitizePhoneNumber,
+    validate: validatePhoneNumber,
+    error: 'Please enter a valid phone number.',
+  },
 };
 
 const buildAuthModal = () => {
@@ -270,19 +315,19 @@ const buildAuthModal = () => {
         </div>
         <p class="field-error" id="loginPasswordError" aria-live="polite"></p>
         <a class="auth-forgot" href="./contact.html?topic=Forgot%20password">Forgot Password?</a>
-        <button class="btn btn--primary btn--block" type="submit">Login</button>
+        <button class="btn btn--primary btn--block" type="submit" disabled>Login</button>
         <p class="auth-status" aria-live="polite"></p>
         <p class="auth-switch">New user? <button class="auth-link" type="button" data-auth-mode="signup">Create an account</button></p>
       </form>
       <form class="auth-form" id="signupForm" novalidate>
         <label for="signupName">Name</label>
-        <input id="signupName" name="name" type="text" autocomplete="name" required data-error="Please enter your name.">
+        <input id="signupName" name="name" type="text" autocomplete="name" required data-error="Name should contain only letters.">
         <p class="field-error" id="signupNameError" aria-live="polite"></p>
         <label for="signupEmail">Email</label>
         <input id="signupEmail" name="email" type="email" autocomplete="email" required data-error="Please enter a valid email address.">
         <p class="field-error" id="signupEmailError" aria-live="polite"></p>
         <label for="signupPhone">Phone</label>
-        <input id="signupPhone" name="phone" type="tel" autocomplete="tel" required data-error="Please enter your phone number.">
+        <input id="signupPhone" name="phone" type="tel" autocomplete="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" required data-error="Please enter a valid phone number.">
         <p class="field-error" id="signupPhoneError" aria-live="polite"></p>
         <label for="signupCompany">Company</label>
         <input id="signupCompany" name="company" type="text" autocomplete="organization" required data-error="Please enter your company name.">
@@ -293,7 +338,7 @@ const buildAuthModal = () => {
           <button class="show-password" type="button" data-password-toggle="signupPassword">Show Password</button>
         </div>
         <p class="field-error" id="signupPasswordError" aria-live="polite"></p>
-        <button class="btn btn--primary btn--block" type="submit">Create Account</button>
+        <button class="btn btn--primary btn--block" type="submit" disabled>Create Account</button>
         <p class="auth-status" aria-live="polite"></p>
         <p class="auth-switch">Already have an account? <button class="auth-link" type="button" data-auth-mode="login">Login</button></p>
       </form>
@@ -364,6 +409,74 @@ if (authOverlay) {
     status.style.color = '';
   };
 
+  const getAuthFieldRule = (field) => authFieldRules[field.name] || null;
+
+  const sanitizeAuthField = (field) => {
+    const rule = getAuthFieldRule(field);
+    if (!rule?.sanitize) return false;
+
+    const cleanValue = rule.sanitize(field.value);
+    if (field.value !== cleanValue) {
+      const cursorPosition = field.selectionStart;
+      const removedCharacters = field.value.length - cleanValue.length;
+      field.value = cleanValue;
+
+      if (cursorPosition !== null && document.activeElement === field) {
+        const nextPosition = Math.max(cursorPosition - removedCharacters, 0);
+        field.setSelectionRange(nextPosition, nextPosition);
+      }
+
+      return true;
+    }
+
+    return false;
+  };
+
+  const getAuthFieldError = (field) => {
+    const rule = getAuthFieldRule(field);
+    const value = field.value.trim();
+
+    if (field.required && !value) {
+      return rule?.error || field.dataset.error || 'Please complete this field.';
+    }
+
+    if (rule && !rule.validate(field.value)) {
+      return rule.error;
+    }
+
+    return '';
+  };
+
+  const validateAuthField = (field, { showErrorMessage = true } = {}) => {
+    const hadInvalidCharacters = sanitizeAuthField(field);
+    const message = hadInvalidCharacters
+      ? getAuthFieldRule(field)?.error || field.dataset.error || 'Please complete this field.'
+      : getAuthFieldError(field);
+
+    if (showErrorMessage) {
+      if (message) {
+        showError(field, message);
+      } else {
+        clearFieldError(field);
+      }
+    }
+
+    return !message;
+  };
+
+  const getRequiredAuthFields = (form) => {
+    return Array.from(form.querySelectorAll('input[required], select[required]'));
+  };
+
+  const updateAuthSubmitState = (form) => {
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (!submitButton) return false;
+
+    const isValid = getRequiredAuthFields(form).every(field => validateAuthField(field, { showErrorMessage: false }));
+    submitButton.disabled = !isValid;
+    return isValid;
+  };
+
   const setAuthMode = (mode) => {
     const isSignup = mode === 'signup';
     loginForm.classList.toggle('active', !isSignup);
@@ -378,6 +491,8 @@ if (authOverlay) {
     clearErrors(signupForm);
     resetAuthStatus(loginForm);
     resetAuthStatus(signupForm);
+    updateAuthSubmitState(loginForm);
+    updateAuthSubmitState(signupForm);
     window.setTimeout(() => {
       const firstField = isSignup ? signupForm.querySelector('input') : loginForm.querySelector('input');
       firstField?.focus();
@@ -405,28 +520,19 @@ if (authOverlay) {
     let valid = true;
     let firstInvalidField = null;
 
-    const markInvalid = (field, message) => {
-      valid = false;
-      firstInvalidField ||= field;
-      showError(field, message, form);
-    };
-
-    form.querySelectorAll('input[required], select[required]').forEach(field => {
-      if (!field.value.trim()) {
-        markInvalid(field, field.dataset.error || 'Please complete this field.');
+    getRequiredAuthFields(form).forEach(field => {
+      if (!validateAuthField(field)) {
+        valid = false;
+        firstInvalidField ||= field;
       }
     });
-
-    const emailField = form.querySelector('[type="email"]');
-    if (emailField && emailField.value.trim() && !validateEmail(emailField.value)) {
-      markInvalid(emailField, 'Please enter a valid email address.');
-    }
 
     if (!valid) {
       form.querySelector('.auth-status').textContent = 'Please correct the highlighted fields.';
       firstInvalidField?.focus();
     }
 
+    updateAuthSubmitState(form);
     return valid;
   };
 
@@ -479,9 +585,29 @@ if (authOverlay) {
   });
 
   authOverlay.querySelectorAll('input, select').forEach(field => {
-    field.addEventListener('input', () => clearFieldError(field));
-    field.addEventListener('change', () => clearFieldError(field));
+    const form = field.closest('form');
+
+    field.addEventListener('input', () => {
+      validateAuthField(field);
+      if (form) {
+        resetAuthStatus(form);
+        updateAuthSubmitState(form);
+      }
+    });
+
+    field.addEventListener('blur', () => {
+      validateAuthField(field);
+      if (form) updateAuthSubmitState(form);
+    });
+
+    field.addEventListener('change', () => {
+      validateAuthField(field);
+      if (form) updateAuthSubmitState(form);
+    });
   });
+
+  updateAuthSubmitState(loginForm);
+  updateAuthSubmitState(signupForm);
 
   loginForm.addEventListener('submit', (event) => {
     event.preventDefault();
