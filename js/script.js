@@ -402,6 +402,30 @@ if (authOverlay) {
   const authTitle = authOverlay.querySelector('#authTitle');
   const authIntro = authOverlay.querySelector('#authIntro');
   let lastFocusedElement = null;
+  const authSessionKey = 'stacklyAuthSession';
+
+  const getAuthSession = () => {
+    try {
+      return JSON.parse(localStorage.getItem(authSessionKey));
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const setAuthSession = (session) => {
+    localStorage.setItem(authSessionKey, JSON.stringify(session));
+  };
+
+  const clearAuthSession = () => {
+    localStorage.removeItem(authSessionKey);
+  };
+
+  const updateLoginButtonState = () => {
+    const isSignedIn = Boolean(getAuthSession());
+    loginButton.textContent = isSignedIn ? 'Sign Out' : 'Login';
+    loginButton.setAttribute('aria-label', isSignedIn ? 'Sign out of Stackly' : 'Open login modal');
+    loginButton.classList.toggle('nav-login--signout', isSignedIn);
+  };
 
   const resetAuthStatus = (form) => {
     const status = form.querySelector('.auth-status');
@@ -536,7 +560,19 @@ if (authOverlay) {
     return valid;
   };
 
-  loginButton?.addEventListener('click', openAuthModal);
+  updateLoginButtonState();
+
+  loginButton?.addEventListener('click', () => {
+    if (getAuthSession()) {
+      clearAuthSession();
+      updateLoginButtonState();
+      closeNav();
+      showToast('Signed out successfully.');
+      return;
+    }
+
+    openAuthModal();
+  });
   closeAuthButton?.addEventListener('click', closeAuthModal);
   loginTab?.addEventListener('click', () => setAuthMode('login'));
   signupTab?.addEventListener('click', () => setAuthMode('signup'));
@@ -613,6 +649,12 @@ if (authOverlay) {
     event.preventDefault();
     if (!validateAuthForm(loginForm)) return;
 
+    setAuthSession({
+      accountType: loginForm.querySelector('[name="accountType"]').value,
+      email: loginForm.querySelector('[name="email"]').value.trim(),
+      signedInAt: new Date().toISOString(),
+    });
+    updateLoginButtonState();
     loginForm.querySelector('.auth-status').textContent = 'Login successful. Redirecting...';
     loginForm.querySelector('.auth-status').style.color = 'var(--success)';
     showToast('Login successful.');
